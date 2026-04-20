@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel — Train Route Navigator</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-layout { display: grid; grid-template-columns: 310px 1fr; gap: 24px; align-items: start; }
+        .admin-sidebar { display: flex; flex-direction: column; gap: 16px; }
+        .tab-bar { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 5px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 8px 12px; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-2); background: transparent; cursor: pointer; }
+        .tab-btn.active { background: var(--accent); color: #ffffff; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .line-ctrl-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-2); border-radius: 8px; margin-bottom: 8px; }
+        .chain-box { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+        .chain-item { padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<header class="site-header">
+    <a href="user.html" class="logo">
+        <div class="logo-icon">🚇</div>
+        <div><div class="logo-text">TrainNav</div><div class="logo-sub">DSA Project</div></div>
+    </a>
+    <nav class="header-nav">
+        <a href="user.html" class="nav-link">User Dashboard</a>
+        <a href="admin.html" class="nav-link active">Admin Panel</a>
+    </nav>
+</header>
+
+<div class="page-wrapper">
+    <div class="stats-row" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="stat-card"><div class="stat-value" id="stat-lines">4</div><div class="stat-label">Lines</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-stations">15</div><div class="stat-label">Stations</div></div>
+    </div>
+
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <div class="card">
+                <div class="card-title">➕ Add Station (Current Session Only)</div>
+                <div class="form-group">
+                    <label class="form-label">Line</label>
+                    <select id="add-line-sel" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="add-stn-name" class="form-control" placeholder="e.g. South End">
+                </div>
+                <button class="btn btn-success btn-full" onclick="handleAddStation()">Add to Line</button>
+            </div>
+        </aside>
+
+        <div>
+            <div class="tab-bar">
+                <button class="tab-btn active" id="tab-btn-lines" onclick="switchTab('lines')">🚉 Line Structure</button>
+                <button class="tab-btn" id="tab-btn-ctrl" onclick="switchTab('ctrl')">⚙ Status Control</button>
+            </div>
+
+            <div id="panel-lines" class="tab-panel active">
+                <div id="lines-list"></div>
+            </div>
+
+            <div id="panel-ctrl" class="tab-panel">
+                <div id="ctrl-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ================================================================
+//  INTERNAL DATA (INDEPENDENT)
+// ================================================================
+var stationNames = ["Airport","Central Park","City Hall","Tech Hub","University","Riverside","Northgate","Market Square","Stadium","Harbor","Westfield","Arts District","Old Town","Southpark","Eastgate"];
+var lines = [
+    { id:0, name:"Purple Line", color:"#7F77DD", isActive:true, stations:[0,1,2,3,4,12,5] },
+    { id:1, name:"Green Line",  color:"#1D9E75", isActive:true, stations:[6,4,7,8,5,13,9] },
+    { id:2, name:"Yellow Line", color:"#BA7517", isActive:true, stations:[10,3,7,2,11,14] },
+    { id:3, name:"Red Line",    color:"#D85A30", isActive:true, stations:[9,11,1,6,0,8,10] }
+];
+
+function handleAddStation() {
+    const lineId = parseInt(document.getElementById('add-line-sel').value);
+    const name = document.getElementById('add-stn-name').value.trim();
+    if(!name) return;
+    
+    let sid = stationNames.indexOf(name);
+    if(sid === -1) {
+        sid = stationNames.length;
+        stationNames.push(name);
+    }
+    
+    const line = lines.find(l => l.id === lineId);
+    if(!line.stations.includes(sid)) {
+        line.stations.push(sid);
+        refreshUI();
+        alert(name + " added! (Note: Changes won't reflect in User Dashboard as they are separate files)");
+    }
+}
+
+function refreshUI() {
+    document.getElementById("stat-stations").textContent = stationNames.length;
+    const addSel = document.getElementById("add-line-sel");
+    addSel.innerHTML = "";
+    lines.forEach(l => { addSel.innerHTML += `<option value="${l.id}">${l.name}</option>`; });
+
+    const list = document.getElementById("lines-list"); list.innerHTML = "";
+    lines.forEach(l => {
+        let chainHtml = "";
+        l.stations.forEach(sid => { chainHtml += `<span class="chain-item" style="background:${l.color}">${stationNames[sid]}</span> `; });
+        list.innerHTML += `<div class="card" style="margin-bottom:12px"><div style="font-weight:700; color:${l.color}">${l.name}</div><div class="chain-box">${chainHtml}</div></div>`;
+    });
+
+    const ctrl = document.getElementById("ctrl-list"); ctrl.innerHTML = "";
+    lines.forEach(l => {
+        ctrl.innerHTML += `<div class="line-ctrl-row"><div style="flex:1"><strong>${l.name}</strong></div><div class="badge ${l.isActive ? 'badge-active' : 'badge-suspended'}">${l.isActive ? 'Active' : 'Suspended'}</div><button class="btn btn-sm ${l.isActive ? 'btn-danger' : 'btn-success'}" onclick="l.isActive=!l.isActive; refreshUI();">${l.isActive ? 'Suspend' : 'Activate'}</button></div>`;
+    });
+}
+
+function switchTab(tab) {
+    document.getElementById('panel-lines').classList.toggle('active', tab === 'lines');
+    document.getElementById('panel-ctrl').classList.toggle('active', tab === 'ctrl');
+    document.getElementById('tab-btn-lines').classList.toggle('active', tab === 'lines');
+    document.getElementById('tab-btn-ctrl').classList.toggle('active', tab === 'ctrl');
+}
+
+refreshUI();
+</script>
+</body>
+</html>

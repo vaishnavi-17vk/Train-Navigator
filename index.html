@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train Route Network Navigator</title>
+    <meta name="description" content="Interactive Train Route Network Navigator — DSA Project Demo with BFS pathfinding and metro map visualization.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ==================== RESET & BASE ==================== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, Arial, sans-serif;
+            background: #f5f4f0;
+            color: #2c2c2a;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ==================== HEADER ==================== */
+        .header {
+            background: #3C3489;
+            color: #ffffff;
+            padding: 28px 32px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: 4px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.75;
+            font-weight: 400;
+        }
+
+        /* ==================== MAP SECTION ==================== */
+        .map-section {
+            padding: 24px 24px 0;
+        }
+        .map-card {
+            background: #ffffff;
+            border: 1px solid #e5e4dc;
+            border-radius: 10px;
+            overflow: hidden;
+            padding: 12px;
+        }
+        #network-map {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .line-edges {
+            transition: opacity 0.3s ease;
+        }
+        #network-map circle {
+            transition: fill 0.25s ease, r 0.25s ease;
+        }
+
+        /* ==================== PANEL SECTION ==================== */
+        .panel-section {
+            padding: 24px;
+        }
+        .panel-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* ==================== CARDS ==================== */
+        .card {
+            background: #ffffff;
+            border: 1px solid #e5e4dc;
+            border-radius: 10px;
+            padding: 24px;
+        }
+        .card h2 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: #2c2c2a;
+        }
+        .card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #5F5E5A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ==================== FORM ==================== */
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #5F5E5A;
+            margin-bottom: 5px;
+        }
+        select {
+            width: 100%;
+            padding: 10px 36px 10px 12px;
+            border: 1px solid #e5e4dc;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #2c2c2a;
+            background: #ffffff;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235F5E5A'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            outline: none;
+            border-color: #3C3489;
+        }
+        #find-route-btn {
+            width: 100%;
+            padding: 12px;
+            background: #3C3489;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 4px;
+        }
+        #find-route-btn:hover {
+            background: #2d2766;
+        }
+        #find-route-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ==================== ROUTE RESULT ==================== */
+        .route-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            border-left: 3px solid;
+            margin-left: 8px;
+            animation: fadeInUp 0.3s ease both;
+        }
+        .station-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .station-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .interchange-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            background: #FAEEDA;
+            color: #854F0B;
+            border-radius: 10px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            flex-shrink: 0;
+        }
+        .route-change {
+            margin-left: 8px;
+            padding: 5px 14px;
+            font-size: 13px;
+            color: #BA7517;
+            font-weight: 600;
+            border-left: 3px dashed #e5e4dc;
+            animation: fadeInUp 0.3s ease both;
+        }
+        .route-summary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 16px;
+            padding: 12px;
+            background: #f0efec;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2c2c2a;
+            animation: fadeInUp 0.35s ease both;
+        }
+        .route-summary strong {
+            font-weight: 700;
+        }
+        .summary-divider {
+            color: #c5c4be;
+        }
+        .error-msg {
+            text-align: center;
+            padding: 20px;
+            color: #D85A30;
+            font-weight: 500;
+            background: #fef3ed;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .info-msg {
+            text-align: center;
+            padding: 20px;
+            color: #3C3489;
+            font-weight: 500;
+            background: #eeedfa;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        /* ==================== STATS GRID ==================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 16px 8px;
+            background: #f8f7f5;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .stat-card:hover {
+            background: #eeedfa;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #3C3489;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #5F5E5A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* ==================== LINE STATUS LIST ==================== */
+        .line-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .line-item:hover {
+            background: #f5f4f0;
+        }
+        .line-item.active-highlight {
+            background: #eeedfa;
+        }
+        .line-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .line-name {
+            flex: 1;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .line-status {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .line-status.active {
+            color: #1D9E75;
+        }
+
+        /* ==================== ANIMATIONS ==================== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 700px) {
+            .header { padding: 20px 16px; }
+            .header h1 { font-size: 20px; }
+            .map-section { padding: 16px 12px 0; }
+            .panel-section { padding: 16px 12px; }
+            .panel-container { grid-template-columns: 1fr; }
+            .card { padding: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============ SECTION 1: HEADER ============ -->
+    <header class="header">
+        <h1>Train Route Network Navigator</h1>
+        <p>DSA Project &mdash; Interactive Demo</p>
+    </header>
+
+    <!-- ============ SECTION 2: NETWORK MAP ============ -->
+    <section class="map-section">
+        <div class="map-card">
+            <svg id="network-map" viewBox="0 0 960 410" preserveAspectRatio="xMidYMid meet">
+                <!-- populated by JavaScript -->
+            </svg>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 3: PANELS ============ -->
+    <section class="panel-section">
+        <div class="panel-container">
+
+            <!-- LEFT — Route Finder -->
+            <div class="card" id="route-finder-card">
+                <h2>Find Route</h2>
+                <div class="form-group">
+                    <label for="from-station">From</label>
+                    <select id="from-station">
+                        <option value="">Select station&hellip;</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="to-station">To</label>
+                    <select id="to-station">
+                        <option value="">Select station&hellip;</option>
+                    </select>
+                </div>
+                <button id="find-route-btn" onclick="findRoute()">Find Route</button>
+                <div id="route-result"></div>
+            </div>
+
+            <!-- RIGHT — Network Info -->
+            <div class="card" id="network-info-card">
+                <h2>Network Info</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">4</div>
+                        <div class="stat-label">Lines</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">15</div>
+                        <div class="stat-label">Stations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">12</div>
+                        <div class="stat-label">Interchanges</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">7</div>
+                        <div class="stat-label">Avg. stops/line</div>
+                    </div>
+                </div>
+                <h3>Line Status</h3>
+                <div id="line-status-list"></div>
+            </div>
+
+        </div>
+    </section>
+
+<script>
+// ================================================================
+//  DATA — Hard-coded network (matches C++ backend exactly)
+// ================================================================
+
+var STATION_COUNT = 15;
+
+var stationNames = [
+    "Airport",          // 0
+    "Central Park",     // 1
+    "City Hall",        // 2
+    "Tech Hub",         // 3
+    "University",       // 4
+    "Riverside",        // 5
+    "Northgate",        // 6
+    "Market Square",    // 7
+    "Stadium",          // 8
+    "Harbor",           // 9
+    "Westfield",        // 10
+    "Arts District",    // 11
+    "Old Town",         // 12
+    "Southpark",        // 13
+    "Eastgate"          // 14
+];
+
+// SVG station positions (x, y)
+var positions = [
+    {x: 80,  y: 80},   // 0  Airport
+    {x: 200, y: 60},   // 1  Central Park
+    {x: 340, y: 80},   // 2  City Hall
+    {x: 480, y: 60},   // 3  Tech Hub
+    {x: 600, y: 80},   // 4  University
+    {x: 820, y: 160},  // 5  Riverside
+    {x: 160, y: 200},  // 6  Northgate
+    {x: 400, y: 200},  // 7  Market Square
+    {x: 560, y: 200},  // 8  Stadium
+    {x: 860, y: 260},  // 9  Harbor
+    {x: 100, y: 300},  // 10 Westfield
+    {x: 280, y: 300},  // 11 Arts District
+    {x: 720, y: 100},  // 12 Old Town
+    {x: 740, y: 220},  // 13 Southpark
+    {x: 560, y: 300}   // 14 Eastgate
+];
+
+// Label offsets for SVG text placement
+var labelConfig = [
+    {dx: 0,   dy: -18, anchor: "middle"},  // 0  Airport       — above
+    {dx: 0,   dy: -18, anchor: "middle"},  // 1  Central Park  — above
+    {dx: 0,   dy: -18, anchor: "middle"},  // 2  City Hall     — above
+    {dx: 0,   dy: -18, anchor: "middle"},  // 3  Tech Hub      — above
+    {dx: 0,   dy: -18, anchor: "middle"},  // 4  University    — above
+    {dx: 18,  dy: 5,   anchor: "start"},   // 5  Riverside     — right
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 6  Northgate     — below
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 7  Market Square — below
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 8  Stadium       — below
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 9  Harbor        — below
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 10 Westfield     — below
+    {dx: 0,   dy: 28,  anchor: "middle"},  // 11 Arts District — below
+    {dx: 18,  dy: 5,   anchor: "start"},   // 12 Old Town      — right
+    {dx: 18,  dy: 5,   anchor: "start"},   // 13 Southpark     — right
+    {dx: 0,   dy: 28,  anchor: "middle"}   // 14 Eastgate      — below
+];
+
+// Lines: id, name, color, station sequence (circular linked list order)
+var lines = [
+    { name: "Purple Line", color: "#7F77DD", stations: [0, 1, 2, 3, 4, 12, 5] },
+    { name: "Green Line",  color: "#1D9E75", stations: [6, 4, 7, 8, 5, 13, 9] },
+    { name: "Yellow Line", color: "#BA7517", stations: [10, 3, 7, 2, 11, 14] },
+    { name: "Red Line",    color: "#D85A30", stations: [9, 11, 1, 6, 0, 8, 10] }
+];
+
+// Interchange flag: true if station appears on 2+ lines
+var isInterchange = [
+    true,   // 0  Airport        (Purple, Red)
+    true,   // 1  Central Park   (Purple, Red)
+    true,   // 2  City Hall      (Purple, Yellow)
+    true,   // 3  Tech Hub       (Purple, Yellow)
+    true,   // 4  University     (Purple, Green)
+    true,   // 5  Riverside      (Purple, Green)
+    true,   // 6  Northgate      (Green, Red)
+    true,   // 7  Market Square  (Green, Yellow)
+    true,   // 8  Stadium        (Green, Red)
+    true,   // 9  Harbor         (Green, Red)
+    true,   // 10 Westfield      (Yellow, Red)
+    true,   // 11 Arts District  (Yellow, Red)
+    false,  // 12 Old Town       (Purple only)
+    false,  // 13 Southpark      (Green only)
+    false   // 14 Eastgate       (Yellow only)
+];
+
+// Wrap-around curve control points (for circular connections drawn as curves)
+var wrapCurveLookup = {};
+(function() {
+    var defs = [
+        {a: 5,  b: 0,  cx: 450, cy: 12},   // Purple: Riverside → Airport (arcs up)
+        {a: 9,  b: 6,  cx: 510, cy: 345},   // Green:  Harbor → Northgate (arcs down)
+        {a: 14, b: 10, cx: 330, cy: 370},   // Yellow: Eastgate → Westfield (arcs down)
+        {a: 10, b: 9,  cx: 480, cy: 395}    // Red:    Westfield → Harbor (arcs down)
+    ];
+    for (var i = 0; i < defs.length; i++) {
+        var d = defs[i];
+        wrapCurveLookup[d.a + "-" + d.b] = {cx: d.cx, cy: d.cy};
+        wrapCurveLookup[d.b + "-" + d.a] = {cx: d.cx, cy: d.cy};
+    }
+})();
+
+
+// ================================================================
+//  ADJACENCY MATRIX  (mirrors C++ buildAdjMatrix)
+// ================================================================
+
+var adjMatrix = [];
+var lineOfEdge = [];
+
+function buildAdjacency() {
+    for (var i = 0; i < STATION_COUNT; i++) {
+        adjMatrix[i] = [];
+        lineOfEdge[i] = [];
+        for (var j = 0; j < STATION_COUNT; j++) {
+            adjMatrix[i][j] = 0;
+            lineOfEdge[i][j] = -1;
+        }
+    }
+    for (var l = 0; l < lines.length; l++) {
+        var stns = lines[l].stations;
+        for (var i = 0; i < stns.length; i++) {
+            var a = stns[i];
+            var b = stns[(i + 1) % stns.length]; // circular
+            adjMatrix[a][b] = 1;
+            adjMatrix[b][a] = 1;
+            lineOfEdge[a][b] = l;
+            lineOfEdge[b][a] = l;
+        }
+    }
+}
+
+
+// ================================================================
+//  BFS SHORTEST PATH  (mirrors C++ bfsShortestPath)
+// ================================================================
+
+function bfs(fromId, toId) {
+    if (fromId === toId) return [fromId];
+
+    var dist = [];
+    var prev = [];
+    var visited = [];
+    for (var i = 0; i < STATION_COUNT; i++) {
+        dist[i] = -1;
+        prev[i] = -1;
+        visited[i] = false;
+    }
+
+    dist[fromId] = 0;
+    visited[fromId] = true;
+    var queue = [];
+    var qHead = 0;
+    queue.push(fromId);
+
+    while (qHead < queue.length) {
+        var u = queue[qHead];
+        qHead++;
+        if (u === toId) break;
+
+        for (var v = 0; v < STATION_COUNT; v++) {
+            if (adjMatrix[u][v] === 1 && !visited[v]) {
+                visited[v] = true;
+                dist[v] = dist[u] + 1;
+                prev[v] = u;
+                queue.push(v);
+            }
+        }
+    }
+
+    if (dist[toId] === -1) return null;
+
+    // Backtrack to build path
+    var path = [];
+    var c = toId;
+    while (c !== -1) {
+        path.push(c);
+        c = prev[c];
+    }
+    // Reverse
+    for (var i = 0; i < Math.floor(path.length / 2); i++) {
+        var temp = path[i];
+        path[i] = path[path.length - 1 - i];
+        path[path.length - 1 - i] = temp;
+    }
+    return path;
+}
+
+
+// ================================================================
+//  SVG MAP RENDERING
+// ================================================================
+
+var svgNS = "http://www.w3.org/2000/svg";
+var activeLineHighlight = -1;
+
+function getStationColor(id) {
+    for (var l = 0; l < lines.length; l++) {
+        var stns = lines[l].stations;
+        for (var i = 0; i < stns.length; i++) {
+            if (stns[i] === id) return lines[l].color;
+        }
+    }
+    return "#888";
+}
+
+function initMap() {
+    var svg = document.getElementById("network-map");
+
+    // --- Draw edges for each line ---
+    for (var l = 0; l < lines.length; l++) {
+        var group = document.createElementNS(svgNS, "g");
+        group.id = "line-group-" + l;
+        group.setAttribute("class", "line-edges");
+
+        var stns = lines[l].stations;
+        for (var i = 0; i < stns.length; i++) {
+            var a = stns[i];
+            var b = stns[(i + 1) % stns.length];
+            var isWrap = (i === stns.length - 1);
+            var color = lines[l].color;
+            var x1 = positions[a].x, y1 = positions[a].y;
+            var x2 = positions[b].x, y2 = positions[b].y;
+
+            if (isWrap) {
+                var key = a + "-" + b;
+                var ctrl = wrapCurveLookup[key];
+                if (ctrl) {
+                    var p = document.createElementNS(svgNS, "path");
+                    p.setAttribute("d", "M " + x1 + " " + y1 + " Q " + ctrl.cx + " " + ctrl.cy + ", " + x2 + " " + y2);
+                    p.setAttribute("stroke", color);
+                    p.setAttribute("stroke-width", "3");
+                    p.setAttribute("fill", "none");
+                    p.setAttribute("stroke-dasharray", "6 4");
+                    p.setAttribute("opacity", "0.45");
+                    p.setAttribute("stroke-linecap", "round");
+                    p.dataset.from = a;
+                    p.dataset.to = b;
+                    group.appendChild(p);
+                }
+            } else {
+                var ln = document.createElementNS(svgNS, "line");
+                ln.setAttribute("x1", x1);
+                ln.setAttribute("y1", y1);
+                ln.setAttribute("x2", x2);
+                ln.setAttribute("y2", y2);
+                ln.setAttribute("stroke", color);
+                ln.setAttribute("stroke-width", "4");
+                ln.setAttribute("stroke-linecap", "round");
+                ln.dataset.from = a;
+                ln.dataset.to = b;
+                group.appendChild(ln);
+            }
+        }
+        svg.appendChild(group);
+    }
+
+    // --- Route highlight layer (empty) ---
+    var hlGroup = document.createElementNS(svgNS, "g");
+    hlGroup.id = "route-highlight";
+    svg.appendChild(hlGroup);
+
+    // --- Station circles ---
+    for (var i = 0; i < STATION_COUNT; i++) {
+        var circle = document.createElementNS(svgNS, "circle");
+        circle.id = "station-circle-" + i;
+        circle.setAttribute("cx", positions[i].x);
+        circle.setAttribute("cy", positions[i].y);
+        circle.setAttribute("fill", "#ffffff");
+        circle.style.cursor = "pointer";
+
+        if (isInterchange[i]) {
+            circle.setAttribute("r", "10");
+            circle.setAttribute("stroke", "#2c2c2a");
+            circle.setAttribute("stroke-width", "2.5");
+        } else {
+            circle.setAttribute("r", "7");
+            circle.setAttribute("stroke", getStationColor(i));
+            circle.setAttribute("stroke-width", "2.5");
+        }
+
+        // Native tooltip on hover
+        var title = document.createElementNS(svgNS, "title");
+        title.textContent = stationNames[i] + (isInterchange[i] ? " (Interchange)" : "");
+        circle.appendChild(title);
+
+        svg.appendChild(circle);
+    }
+
+    // --- Station labels ---
+    for (var i = 0; i < STATION_COUNT; i++) {
+        var text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", positions[i].x + labelConfig[i].dx);
+        text.setAttribute("y", positions[i].y + labelConfig[i].dy);
+        text.setAttribute("text-anchor", labelConfig[i].anchor);
+        text.setAttribute("font-size", "11");
+        text.setAttribute("font-family", "Inter, system-ui, sans-serif");
+        text.setAttribute("fill", "#2c2c2a");
+        text.setAttribute("font-weight", "500");
+        text.textContent = stationNames[i];
+        svg.appendChild(text);
+    }
+}
+
+
+// ================================================================
+//  MAP HIGHLIGHTING
+// ================================================================
+
+function clearRouteHighlight() {
+    var hlGroup = document.getElementById("route-highlight");
+    if (hlGroup) hlGroup.innerHTML = "";
+
+    for (var i = 0; i < STATION_COUNT; i++) {
+        var c = document.getElementById("station-circle-" + i);
+        if (!c) continue;
+        c.setAttribute("fill", "#ffffff");
+        c.setAttribute("r", isInterchange[i] ? "10" : "7");
+    }
+}
+
+function highlightRouteOnMap(path) {
+    clearRouteHighlight();
+
+    // Reset line group opacities
+    activeLineHighlight = -1;
+    for (var i = 0; i < lines.length; i++) {
+        document.getElementById("line-group-" + i).style.opacity = "1";
+    }
+    // Remove active-highlight class from line items
+    var items = document.querySelectorAll(".line-item");
+    for (var i = 0; i < items.length; i++) items[i].classList.remove("active-highlight");
+
+    var hlGroup = document.getElementById("route-highlight");
+
+    // Draw thick edge highlights along the route
+    for (var i = 0; i < path.length - 1; i++) {
+        var a = path[i];
+        var b = path[i + 1];
+        var lineIdx = lineOfEdge[a][b];
+        var color = lines[lineIdx].color;
+        var wrapKey = a + "-" + b;
+
+        if (wrapCurveLookup[wrapKey]) {
+            var ctrl = wrapCurveLookup[wrapKey];
+            var p = document.createElementNS(svgNS, "path");
+            p.setAttribute("d", "M " + positions[a].x + " " + positions[a].y +
+                " Q " + ctrl.cx + " " + ctrl.cy + ", " +
+                positions[b].x + " " + positions[b].y);
+            p.setAttribute("stroke", color);
+            p.setAttribute("stroke-width", "7");
+            p.setAttribute("fill", "none");
+            p.setAttribute("opacity", "0.8");
+            p.setAttribute("stroke-linecap", "round");
+            hlGroup.appendChild(p);
+        } else {
+            var ln = document.createElementNS(svgNS, "line");
+            ln.setAttribute("x1", positions[a].x);
+            ln.setAttribute("y1", positions[a].y);
+            ln.setAttribute("x2", positions[b].x);
+            ln.setAttribute("y2", positions[b].y);
+            ln.setAttribute("stroke", color);
+            ln.setAttribute("stroke-width", "7");
+            ln.setAttribute("opacity", "0.8");
+            ln.setAttribute("stroke-linecap", "round");
+            hlGroup.appendChild(ln);
+        }
+    }
+
+    // Highlight stations on the path with gold
+    for (var i = 0; i < path.length; i++) {
+        var c = document.getElementById("station-circle-" + path[i]);
+        c.setAttribute("fill", "#F2A623");
+        c.setAttribute("r", isInterchange[path[i]] ? "13" : "10");
+    }
+}
+
+function toggleLineHighlight(lineIdx) {
+    clearRouteHighlight();
+    document.getElementById("route-result").innerHTML = "";
+
+    var items = document.querySelectorAll(".line-item");
+
+    if (activeLineHighlight === lineIdx) {
+        // Toggle off — restore all
+        activeLineHighlight = -1;
+        for (var i = 0; i < lines.length; i++) {
+            document.getElementById("line-group-" + i).style.opacity = "1";
+        }
+        for (var i = 0; i < items.length; i++) items[i].classList.remove("active-highlight");
+    } else {
+        activeLineHighlight = lineIdx;
+        for (var i = 0; i < lines.length; i++) {
+            document.getElementById("line-group-" + i).style.opacity = (i === lineIdx) ? "1" : "0.12";
+        }
+        for (var i = 0; i < items.length; i++) {
+            if (i === lineIdx) items[i].classList.add("active-highlight");
+            else items[i].classList.remove("active-highlight");
+        }
+
+        // Highlight stations on this line
+        var stns = lines[lineIdx].stations;
+        for (var j = 0; j < stns.length; j++) {
+            var c = document.getElementById("station-circle-" + stns[j]);
+            c.setAttribute("fill", lines[lineIdx].color);
+            c.setAttribute("r", isInterchange[stns[j]] ? "12" : "9");
+        }
+    }
+}
+
+
+// ================================================================
+//  ROUTE FINDER + DISPLAY
+// ================================================================
+
+function findRoute() {
+    var fromVal = document.getElementById("from-station").value;
+    var toVal   = document.getElementById("to-station").value;
+    var resultDiv = document.getElementById("route-result");
+
+    if (fromVal === "" || toVal === "") {
+        resultDiv.innerHTML = '<div class="error-msg">Please select both stations.</div>';
+        clearRouteHighlight();
+        return;
+    }
+
+    var fromId = parseInt(fromVal);
+    var toId   = parseInt(toVal);
+
+    if (fromId === toId) {
+        resultDiv.innerHTML = '<div class="info-msg">You are already at ' + stationNames[fromId] + '.</div>';
+        clearRouteHighlight();
+        return;
+    }
+
+    var path = bfs(fromId, toId);
+    if (!path) {
+        resultDiv.innerHTML = '<div class="error-msg">No route found between these stations.</div>';
+        clearRouteHighlight();
+        return;
+    }
+
+    displayRoute(path);
+    highlightRouteOnMap(path);
+}
+
+function displayRoute(path) {
+    var resultDiv = document.getElementById("route-result");
+    var html = '<div style="margin-top:18px">';
+    var changes = 0;
+    var stepIndex = 0;
+
+    // Determine the initial line for the first edge
+    var currentLineIdx = (path.length > 1) ? lineOfEdge[path[0]][path[1]] : 0;
+
+    for (var i = 0; i < path.length; i++) {
+        var sid = path[i];
+        var color = lines[currentLineIdx].color;
+        var delay = (stepIndex * 0.06) + "s";
+
+        // Station row
+        html += '<div class="route-step" style="border-left-color:' + color + ';animation-delay:' + delay + '">';
+        html += '<span class="station-dot" style="background:' + color + '"></span>';
+        html += '<span class="station-name">' + stationNames[sid] + '</span>';
+        if (isInterchange[sid]) {
+            html += '<span class="interchange-badge">interchange</span>';
+        }
+        html += '</div>';
+        stepIndex++;
+
+        // Check for line change to next station
+        if (i < path.length - 1) {
+            var nextLineIdx = lineOfEdge[path[i]][path[i + 1]];
+            if (nextLineIdx !== currentLineIdx) {
+                var changeDelay = (stepIndex * 0.06) + "s";
+                html += '<div class="route-change" style="animation-delay:' + changeDelay + '">';
+                html += '<span style="color:' + lines[nextLineIdx].color + '">⤷ Change to ' + lines[nextLineIdx].name + '</span>';
+                html += '</div>';
+                changes++;
+                currentLineIdx = nextLineIdx;
+                stepIndex++;
+            }
+        }
+    }
+
+    var stops = path.length - 1;
+    var estTime = stops * 2 + changes * 3;
+    var sumDelay = (stepIndex * 0.06) + "s";
+    html += '<div class="route-summary" style="animation-delay:' + sumDelay + '">';
+    html += '<span><strong>' + stops + '</strong> stops</span>';
+    html += '<span class="summary-divider">|</span>';
+    html += '<span><strong>' + changes + '</strong> changes</span>';
+    html += '<span class="summary-divider">|</span>';
+    html += '<span>~<strong>' + estTime + '</strong> min</span>';
+    html += '</div>';
+
+    html += '</div>';
+    resultDiv.innerHTML = html;
+}
+
+
+// ================================================================
+//  UI POPULATION
+// ================================================================
+
+function populateDropdowns() {
+    var fromSelect = document.getElementById("from-station");
+    var toSelect   = document.getElementById("to-station");
+
+    // Build sorted index for alphabetical dropdown
+    var indices = [];
+    for (var i = 0; i < STATION_COUNT; i++) indices.push(i);
+    indices.sort(function(a, b) {
+        return stationNames[a].localeCompare(stationNames[b]);
+    });
+
+    for (var j = 0; j < indices.length; j++) {
+        var id = indices[j];
+        var opt1 = document.createElement("option");
+        opt1.value = id;
+        opt1.textContent = stationNames[id];
+        fromSelect.appendChild(opt1);
+
+        var opt2 = document.createElement("option");
+        opt2.value = id;
+        opt2.textContent = stationNames[id];
+        toSelect.appendChild(opt2);
+    }
+}
+
+function populateLineStatus() {
+    var container = document.getElementById("line-status-list");
+    var html = "";
+    for (var i = 0; i < lines.length; i++) {
+        html += '<div class="line-item" onclick="toggleLineHighlight(' + i + ')">';
+        html += '<span class="line-dot" style="background:' + lines[i].color + '"></span>';
+        html += '<span class="line-name">' + lines[i].name + '</span>';
+        html += '<span class="line-status active">Active</span>';
+        html += '</div>';
+    }
+    container.innerHTML = html;
+}
+
+
+// ================================================================
+//  INIT
+// ================================================================
+
+buildAdjacency();
+initMap();
+populateDropdowns();
+populateLineStatus();
+</script>
+
+</body>
+</html>
