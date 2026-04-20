@@ -1,5 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+<script>
+    (function() {
+        const session = JSON.parse(localStorage.getItem('train_nav_session'));
+        if (!session || session.role !== 'admin') {
+            window.location.href = '../index.html';
+        }
+    })();
+</script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,8 +44,8 @@
         <div><div class="logo-text">TrainNav</div><div class="logo-sub">DSA Project</div></div>
     </a>
     <nav class="header-nav">
-        <a href="user.html" class="nav-link">User Dashboard</a>
         <a href="admin.html" class="nav-link active">Admin Panel</a>
+        <a href="#" class="nav-link" onclick="localStorage.removeItem('train_nav_session'); window.location.href='../index.html';">Logout</a>
     </nav>
 </header>
 
@@ -131,6 +139,29 @@ var lines = [
     { id:3, name:"Red Line",    color:"#D85A30", status:"active", stations:[9,11,1,6,0,8,10] }
 ];
 
+var positionsMap = {
+    0: {x:80,y:80}, 1: {x:200,y:60}, 2: {x:340,y:80}, 3: {x:480,y:60}, 4: {x:600,y:80},
+    5: {x:820,y:160}, 6: {x:160,y:200}, 7: {x:400,y:200}, 8: {x:560,y:200}, 9: {x:860,y:260},
+    10:{x:100,y:300}, 11:{x:280,y:300}, 12:{x:720,y:100}, 13:{x:740,y:220}, 14:{x:560,y:310}
+};
+
+function loadNetwork() {
+    const saved = localStorage.getItem('train_nav_network');
+    if (saved) {
+        const data = JSON.parse(saved);
+        stationNames = data.stationNames;
+        lines = data.lines;
+        positionsMap = data.positionsMap;
+    }
+}
+
+function saveNetwork() {
+    const data = { stationNames, lines, positionsMap };
+    localStorage.setItem('train_nav_network', JSON.stringify(data));
+}
+
+loadNetwork();
+
 var historyLog = [];
 var activeLineId = -1;
 
@@ -143,18 +174,13 @@ function logAction(msg) {
 
 function renderHistory() {
     const log = document.getElementById('history-log');
+    if(!log) return;
     if(historyLog.length === 0) return;
     log.innerHTML = "";
     historyLog.forEach(item => {
         log.innerHTML += `<div class="history-item"><span class="history-time">${item.time}</span>${item.msg}</div>`;
     });
 }
-
-var positionsMap = {
-    0: {x:80,y:80}, 1: {x:200,y:60}, 2: {x:340,y:80}, 3: {x:480,y:60}, 4: {x:600,y:80},
-    5: {x:820,y:160}, 6: {x:160,y:200}, 7: {x:400,y:200}, 8: {x:560,y:200}, 9: {x:860,y:260},
-    10:{x:100,y:300}, 11:{x:280,y:300}, 12:{x:720,y:100}, 13:{x:740,y:220}, 14:{x:560,y:310}
-};
 
 var adjMatrix = [];
 var lineOfEdge = [];
@@ -336,6 +362,7 @@ function refreshUI() {
     renderLinesList();
     renderCtrlList();
     initMap();
+    saveNetwork();
 }
 
 function renderLinesList() {

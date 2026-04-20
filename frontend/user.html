@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+<script>
+    (function() {
+        const session = JSON.parse(localStorage.getItem('train_nav_session'));
+        if (!session) {
+            window.location.href = '../index.html';
+        }
+        window.currentRole = session.role;
+    })();
+</script>
 
 <head>
     <meta charset="UTF-8">
@@ -235,11 +244,25 @@
                 <div class="logo-sub">DSA Project</div>
             </div>
         </a>
-        <nav class="header-nav">
+        <nav class="header-nav" id="nav-auth">
             <a href="user.html" class="nav-link active">User Dashboard</a>
-            <a href="admin.html" class="nav-link">Admin Panel</a>
+            <a href="#" class="nav-link" id="logout-link" onclick="localStorage.removeItem('train_nav_session'); window.location.href='../index.html';">Logout</a>
         </nav>
     </header>
+
+    <script>
+        (function() {
+            const sess = JSON.parse(localStorage.getItem('train_nav_session'));
+            if (sess && sess.role === 'admin') {
+                const nav = document.getElementById('nav-auth');
+                const adminLink = document.createElement('a');
+                adminLink.href = 'admin.html';
+                adminLink.className = 'nav-link';
+                adminLink.textContent = 'Admin Panel';
+                nav.insertBefore(adminLink, document.getElementById('logout-link'));
+            }
+        })();
+    </script>
 
     <div class="page-wrapper">
         <div class="main-layout">
@@ -300,21 +323,34 @@
     </div>
 
     <script>
+        if (!localStorage.getItem('train_nav_session')) window.location.href = '../index.html';
+
         // ================================================================
         //  INTERNAL DATA (INDEPENDENT)
         // ================================================================
         var stationNames = ["Airport", "Central Park", "City Hall", "Tech Hub", "University", "Riverside", "Northgate", "Market Square", "Stadium", "Harbor", "Westfield", "Arts District", "Old Town", "Southpark", "Eastgate"];
         var lines = [
-            { id: 0, name: "Purple Line", color: "#7F77DD", isActive: true, stations: [0, 1, 2, 3, 4, 12, 5] },
-            { id: 1, name: "Green Line", color: "#1D9E75", isActive: true, stations: [6, 4, 7, 8, 5, 13, 9] },
-            { id: 2, name: "Yellow Line", color: "#BA7517", isActive: true, stations: [10, 3, 7, 2, 11, 14] },
-            { id: 3, name: "Red Line", color: "#D85A30", isActive: true, stations: [9, 11, 1, 6, 0, 8, 10] }
+            { id: 0, name: "Purple Line", color: "#7F77DD", status: "active", stations: [0, 1, 2, 3, 4, 12, 5] },
+            { id: 1, name: "Green Line",  color: "#1D9E75", status: "active", stations: [6, 4, 7, 8, 5, 13, 9] },
+            { id: 2, name: "Yellow Line", color: "#BA7517", status: "active", stations: [10, 3, 7, 2, 11, 14] },
+            { id: 3, name: "Red Line",    color: "#D85A30", status: "active", stations: [9, 11, 1, 6, 0, 8, 10] }
         ];
         var positionsMap = {
             0: { x: 80, y: 80 }, 1: { x: 200, y: 60 }, 2: { x: 340, y: 80 }, 3: { x: 480, y: 60 }, 4: { x: 600, y: 80 },
             5: { x: 820, y: 160 }, 6: { x: 160, y: 200 }, 7: { x: 400, y: 200 }, 8: { x: 560, y: 200 }, 9: { x: 860, y: 260 },
             10: { x: 100, y: 300 }, 11: { x: 280, y: 300 }, 12: { x: 720, y: 100 }, 13: { x: 740, y: 220 }, 14: { x: 560, y: 310 }
         };
+
+        function loadNetwork() {
+            const saved = localStorage.getItem('train_nav_network');
+            if (saved) {
+                const data = JSON.parse(saved);
+                stationNames = data.stationNames;
+                lines = data.lines;
+                positionsMap = data.positionsMap;
+            }
+        }
+        loadNetwork();
 
         var adjMatrix = [];
         var lineOfEdge = [];
@@ -326,6 +362,7 @@
                 for (var j = 0; j < maxId; j++) { adjMatrix[i][j] = 0; lineOfEdge[i][j] = -1; }
             }
             lines.forEach(l => {
+                if (l.status === "suspended") return;
                 l.stations.forEach((sid, i) => {
                     var nxt = l.stations[(i + 1) % l.stations.length];
                     adjMatrix[sid][nxt] = 1; adjMatrix[nxt][sid] = 1;
@@ -342,10 +379,10 @@
             while (head < q.length) {
                 var u = q[head++];
                 if (u === toId) break;
-                for (var v = 0; v < 50; v++) {
+                for (var v = 0; v < 100; v++) {
                     if (adjMatrix[u][v] === 1 && !vis[v]) {
                         var eid = lineOfEdge[u][v];
-                        if (eid !== -1 && !lines[eid].isActive) continue;
+                        if (eid !== -1 && lines[eid].status === "suspended") continue;
                         vis[v] = true; dist[v] = dist[u] + 1; prev[v] = u; q.push(v);
                     }
                 }
@@ -368,20 +405,22 @@
                 var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
                 g.id = "line-group-" + l.id;
                 
-                // Dim everything if a route or line is active
-                let baseOpacity = l.isActive ? "1" : "0.05";
-                if (isRouteActive) baseOpacity = "0.15";
+                // Dim everything if a route or line is active or if line is suspended
+                let baseOpacity = l.status === "suspended" ? "0.05" : "1";
+                if (isRouteActive) baseOpacity = l.status === "suspended" ? "0.05" : "0.15";
                 else if (activeLineId !== -1 && activeLineId !== l.id) baseOpacity = "0.15";
                 
                 g.style.opacity = baseOpacity;
                 g.style.transition = "opacity 0.3s ease";
+
+                let strokeColor = l.status === "delayed" ? "#ffae00" : l.color;
 
                 l.stations.forEach((sid, i) => {
                     var nxt = l.stations[(i + 1) % l.stations.length];
                     var p1 = positionsMap[sid], p2 = positionsMap[nxt];
                     var ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
                     ln.setAttribute("x1", p1.x); ln.setAttribute("y1", p1.y); ln.setAttribute("x2", p2.x); ln.setAttribute("y2", p2.y);
-                    ln.setAttribute("stroke", l.color); ln.setAttribute("stroke-width", "4"); ln.setAttribute("stroke-linecap", "round");
+                    ln.setAttribute("stroke", strokeColor); ln.setAttribute("stroke-width", "4"); ln.setAttribute("stroke-linecap", "round");
                     
                     // Highlight if part of route
                     if (isRouteActive && isEdgeInPath(sid, nxt)) {
@@ -396,6 +435,7 @@
             // --- Draw Stations ---
             stationNames.forEach((name, id) => {
                 var p = positionsMap[id];
+                if (!p) return;
                 var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 c.id = "station-circle-" + id;
                 c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "7");
@@ -454,6 +494,8 @@
         }
 
         function findRoute() {
+            loadNetwork(); // Sync before search
+            buildAdjMatrix();
             var f = parseInt(document.getElementById("from-station").value), t = parseInt(document.getElementById("to-station").value);
             if (isNaN(f) || isNaN(t)) return;
             var path = bfs(f, t);
@@ -545,11 +587,13 @@
             var lList = document.getElementById("line-status-list"); lList.innerHTML = "";
             lines.forEach(l => {
                 const isActive = activeLineId === l.id;
+                const statusTxt = l.status === "active" ? "Active" : (l.status === "delayed" ? "Delayed" : "Down");
+                const statusClass = l.status === "active" ? "badge-active" : "badge-suspended";
                 lList.innerHTML += `
                     <div class="line-item ${isActive ? 'active' : ''}" onclick="highlightLine(${l.id})">
                         <div class="line-dot" style="background:${l.color}"></div>
                         <div class="line-label">${l.name}</div>
-                        <span class="badge ${l.isActive ? 'badge-active' : 'badge-suspended'}">${l.isActive ? 'Active' : 'Down'}</span>
+                        <span class="badge ${statusClass}">${statusTxt}</span>
                     </div>`;
             });
 
