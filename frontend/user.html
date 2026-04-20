@@ -201,6 +201,27 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* --- Route Highlighting ONLY --- */
+        .route-edge {
+            stroke-width: 8px !important;
+            stroke: #ff7a18 !important;
+            filter: drop-shadow(0 0 6px #ff7a18);
+            stroke-dasharray: 0;
+            opacity: 1 !important;
+        }
+
+        .route-node {
+            r: 10 !important;
+            stroke: #fff !important;
+            stroke-width: 3 !important;
+            fill: #ff7a18 !important;
+            opacity: 1 !important;
+        }
+
+        .dimmed {
+            opacity: 0.15 !important;
+        }
     </style>
 </head>
 
@@ -336,35 +357,64 @@
         }
 
         var activeLineId = -1;
+        var currentRoutePath = null;
 
         function initMap() {
             var svg = document.getElementById("network-map"); svg.innerHTML = "";
+            var isRouteActive = currentRoutePath !== null;
+
+            // --- Draw Edges ---
             lines.forEach(l => {
                 var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
                 g.id = "line-group-" + l.id;
-                g.style.opacity = l.isActive ? (activeLineId === -1 || activeLineId === l.id ? "1" : "0.15") : "0.05";
+                
+                // Dim everything if a route or line is active
+                let baseOpacity = l.isActive ? "1" : "0.05";
+                if (isRouteActive) baseOpacity = "0.15";
+                else if (activeLineId !== -1 && activeLineId !== l.id) baseOpacity = "0.15";
+                
+                g.style.opacity = baseOpacity;
                 g.style.transition = "opacity 0.3s ease";
+
                 l.stations.forEach((sid, i) => {
                     var nxt = l.stations[(i + 1) % l.stations.length];
                     var p1 = positionsMap[sid], p2 = positionsMap[nxt];
                     var ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
                     ln.setAttribute("x1", p1.x); ln.setAttribute("y1", p1.y); ln.setAttribute("x2", p2.x); ln.setAttribute("y2", p2.y);
                     ln.setAttribute("stroke", l.color); ln.setAttribute("stroke-width", "4"); ln.setAttribute("stroke-linecap", "round");
+                    
+                    // Highlight if part of route
+                    if (isRouteActive && isEdgeInPath(sid, nxt)) {
+                        ln.classList.add("route-edge");
+                    }
+
                     g.appendChild(ln);
                 });
                 svg.appendChild(g);
             });
+
+            // --- Draw Stations ---
             stationNames.forEach((name, id) => {
                 var p = positionsMap[id];
                 var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 c.id = "station-circle-" + id;
                 c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "7");
 
-                // Determine if station is on the active line
-                var isOnActive = activeLineId === -1 || lines[activeLineId].stations.includes(id);
+                var inPath = isNodeInPath(id);
+                var isOnActiveLine = activeLineId !== -1 && lines[activeLineId].stations.includes(id);
 
-                c.setAttribute("fill", isOnActive ? "#13131f" : "#0d0d14");
-                c.setAttribute("stroke", isOnActive ? "#7F77DD" : "#333");
+                if (isRouteActive) {
+                    if (inPath) {
+                        c.classList.add("route-node");
+                    } else {
+                        c.classList.add("dimmed");
+                    }
+                } else if (activeLineId !== -1) {
+                    if (!isOnActiveLine) c.classList.add("dimmed");
+                }
+
+                c.setAttribute("fill", "#13131f");
+                c.setAttribute("stroke", "#7F77DD");
                 c.setAttribute("stroke-width", "2");
                 c.style.transition = "all 0.3s ease";
                 c.onclick = () => { document.getElementById("from-station").value = id; };
@@ -374,14 +424,27 @@
                 t.id = "station-text-" + id;
                 t.setAttribute("x", p.x); t.setAttribute("y", p.y - 12);
                 t.setAttribute("text-anchor", "middle"); t.setAttribute("font-size", "10");
-                t.setAttribute("fill", isOnActive ? "#9898b0" : "#444");
-                t.style.transition = "fill 0.3s ease";
+                t.setAttribute("fill", (isRouteActive ? (inPath ? "#fff" : "#444") : (activeLineId !== -1 ? (isOnActiveLine ? "#9898b0" : "#444") : "#9898b0")));
                 t.textContent = name;
                 svg.appendChild(t);
             });
         }
 
+        function isNodeInPath(id) {
+            return currentRoutePath && currentRoutePath.includes(id);
+        }
+
+        function isEdgeInPath(s1, s2) {
+            if (!currentRoutePath) return false;
+            for (let i = 0; i < currentRoutePath.length - 1; i++) {
+                if ((currentRoutePath[i] === s1 && currentRoutePath[i + 1] === s2) ||
+                    (currentRoutePath[i] === s2 && currentRoutePath[i + 1] === s1)) return true;
+            }
+            return false;
+        }
+
         function highlightLine(lineId) {
+            currentRoutePath = null; // Clear route if selecting a line
             if (activeLineId === lineId) activeLineId = -1;
             else activeLineId = lineId;
 
@@ -395,6 +458,12 @@
             if (isNaN(f) || isNaN(t)) return;
             var path = bfs(f, t);
             var rd = document.getElementById("route-result");
+            
+            // Visual Reset
+            activeLineId = -1;
+            currentRoutePath = path;
+            initMap();
+            
             if (!path) { rd.innerHTML = '<div class="alert alert-error">No active route found.</div>'; return; }
             var html = '<div style="margin-top:16px">';
             var changes = 0; var lastLineId = -1;
