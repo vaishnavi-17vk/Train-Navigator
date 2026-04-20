@@ -13,12 +13,19 @@
         .tab-btn.active { background: var(--accent); color: #ffffff; }
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
-        .line-ctrl-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-2); border-radius: 8px; margin-bottom: 8px; }
-        .chain-box { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
-        .chain-item { padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: 500; }
+        .line-ctrl-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-2); border-radius: 8px; margin-bottom: 8px; transition: all 0.2s; }
+        .line-ctrl-row:hover { background: var(--surface); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .chain-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+        .chain-item { padding: 4px 10px; border-radius: 6px; font-size: 11px; color: #fff; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        .chain-item:hover { transform: scale(1.05); }
+        .chain-sep { color: var(--text-3); font-weight: bold; font-size: 14px; }
         .map-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 24px; overflow: hidden; }
-        #network-map { width: 100%; height: auto; display: block; }
+        #network-map { width: 100%; height: auto; display: block; transition: all 0.3s; }
         .pos-group { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+        .history-list { font-size: 12px; color: var(--text-2); display: flex; flex-direction: column; gap: 8px; }
+        .history-item { padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
+        .history-time { color: var(--text-3); font-size: 10px; display: block; margin-bottom: 2px; }
+        .active-row { border-left: 4px solid var(--accent); background: var(--surface); }
     </style>
 </head>
 <body>
@@ -81,6 +88,13 @@
                 </div>
                 <button class="btn btn-danger btn-full" onclick="handleDeleteStation()">Delete from Line</button>
             </div>
+
+            <div class="card">
+                <div class="card-title">📜 Recent Changes</div>
+                <div id="history-log" class="history-list">
+                    <div style="text-align:center; opacity:0.5; padding:20px 0;">No changes logged yet</div>
+                </div>
+            </div>
         </aside>
 
         <div>
@@ -111,11 +125,30 @@
 // ================================================================
 var stationNames = ["Airport","Central Park","City Hall","Tech Hub","University","Riverside","Northgate","Market Square","Stadium","Harbor","Westfield","Arts District","Old Town","Southpark","Eastgate"];
 var lines = [
-    { id:0, name:"Purple Line", color:"#7F77DD", isActive:true, stations:[0,1,2,3,4,12,5] },
-    { id:1, name:"Green Line",  color:"#1D9E75", isActive:true, stations:[6,4,7,8,5,13,9] },
-    { id:2, name:"Yellow Line", color:"#BA7517", isActive:true, stations:[10,3,7,2,11,14] },
-    { id:3, name:"Red Line",    color:"#D85A30", isActive:true, stations:[9,11,1,6,0,8,10] }
+    { id:0, name:"Purple Line", color:"#7F77DD", status:"active", stations:[0,1,2,3,4,12,5] },
+    { id:1, name:"Green Line",  color:"#1D9E75", status:"active", stations:[6,4,7,8,5,13,9] },
+    { id:2, name:"Yellow Line", color:"#BA7517", status:"active", stations:[10,3,7,2,11,14] },
+    { id:3, name:"Red Line",    color:"#D85A30", status:"active", stations:[9,11,1,6,0,8,10] }
 ];
+
+var historyLog = [];
+var activeLineId = -1;
+
+function logAction(msg) {
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    historyLog.unshift({ msg, time });
+    if(historyLog.length > 10) historyLog.pop();
+    renderHistory();
+}
+
+function renderHistory() {
+    const log = document.getElementById('history-log');
+    if(historyLog.length === 0) return;
+    log.innerHTML = "";
+    historyLog.forEach(item => {
+        log.innerHTML += `<div class="history-item"><span class="history-time">${item.time}</span>${item.msg}</div>`;
+    });
+}
 
 var positionsMap = {
     0: {x:80,y:80}, 1: {x:200,y:60}, 2: {x:340,y:80}, 3: {x:480,y:60}, 4: {x:600,y:80},
@@ -132,6 +165,7 @@ function buildAdjMatrix(){
         for(var j=0; j<100; j++){ adjMatrix[i][j]=0; lineOfEdge[i][j]=-1; }
     }
     lines.forEach(l => {
+        if (l.status === "suspended") return; // Skip suspended lines
         l.stations.forEach((sid, i) => {
             var nxt = l.stations[(i+1)%l.stations.length];
             adjMatrix[sid][nxt]=1; adjMatrix[nxt][sid]=1;
@@ -165,6 +199,7 @@ function handleAddStation() {
         } else {
             line.stations.push(sid);
         }
+        logAction(`Added <strong>${name}</strong> to ${line.name}`);
         refreshUI();
     }
 }
@@ -175,8 +210,25 @@ function handleDeleteStation() {
     const line = lines.find(l => l.id === lineId);
     if (!line) return;
 
+    const name = stationNames[sid];
     line.stations = line.stations.filter(id => id !== sid);
+    logAction(`Deleted <strong>${name}</strong> from ${line.name}`);
     refreshUI();
+}
+
+function updateLineStatus(id, newStatus) {
+    const line = lines.find(l => l.id === id);
+    if(line.status === newStatus) return;
+    line.status = newStatus;
+    logAction(`${line.name} status set to <strong>${newStatus.toUpperCase()}</strong>`);
+    refreshUI();
+}
+
+function highlightLine(id) {
+    if(activeLineId === id) activeLineId = -1;
+    else activeLineId = id;
+    initMap();
+    renderLinesList();
 }
 
 function togglePrevStnField() {
@@ -208,13 +260,21 @@ function initMap(){
     var svg=document.getElementById("network-map"); svg.innerHTML = "";
     lines.forEach(l => {
         var g=document.createElementNS("http://www.w3.org/2000/svg","g");
-        g.style.opacity = l.isActive ? "1" : "0.2";
+        
+        let opacity = "1";
+        if (l.status === "suspended") opacity = "0.05";
+        else if (activeLineId !== -1 && activeLineId !== l.id) opacity = "0.15";
+        g.style.opacity = opacity;
+
+        let strokeColor = l.color;
+        if (l.status === "delayed") strokeColor = "#ffae00"; // Delayed tint
+
         l.stations.forEach((sid, i) => {
             var nxt = l.stations[(i+1)%l.stations.length];
             var p1 = positionsMap[sid], p2 = positionsMap[nxt];
             var ln=document.createElementNS("http://www.w3.org/2000/svg","line");
             ln.setAttribute("x1",p1.x); ln.setAttribute("y1",p1.y); ln.setAttribute("x2",p2.x); ln.setAttribute("y2",p2.y);
-            ln.setAttribute("stroke",l.color); ln.setAttribute("stroke-width","4"); ln.setAttribute("stroke-linecap","round");
+            ln.setAttribute("stroke",strokeColor); ln.setAttribute("stroke-width","4"); ln.setAttribute("stroke-linecap","round");
             g.appendChild(ln);
         });
         svg.appendChild(g);
@@ -224,11 +284,18 @@ function initMap(){
         if(!p) return;
         var c = document.createElementNS("http://www.w3.org/2000/svg","circle");
         c.setAttribute("cx",p.x); c.setAttribute("cy",p.y); c.setAttribute("r","7");
-        c.setAttribute("fill","#13131f"); c.setAttribute("stroke","#7F77DD"); c.setAttribute("stroke-width","2");
+        
+        var isOnActive = (activeLineId === -1 || lines[activeLineId].stations.includes(id));
+        c.setAttribute("fill","#13131f");
+        c.setAttribute("stroke", isOnActive ? "#7F77DD" : "#333");
+        c.setAttribute("stroke-width","2");
+        c.style.opacity = isOnActive ? "1" : "0.3";
         svg.appendChild(c);
+
         var t=document.createElementNS("http://www.w3.org/2000/svg","text");
         t.setAttribute("x",p.x); t.setAttribute("y",p.y-12);
-        t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","10"); t.setAttribute("fill","#9898b0");
+        t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","10");
+        t.setAttribute("fill", isOnActive ? "#9898b0" : "#444");
         t.textContent=name;
         svg.appendChild(t);
     });
@@ -266,20 +333,53 @@ function refreshUI() {
 
     updatePrevStnOptions();
     updateDelStnOptions();
+    renderLinesList();
+    renderCtrlList();
+    initMap();
+}
 
+function renderLinesList() {
     const list = document.getElementById("lines-list"); list.innerHTML = "";
     lines.forEach(l => {
         let chainHtml = "";
-        l.stations.forEach(sid => { chainHtml += `<span class="chain-item" style="background:${l.color}">${stationNames[sid]}</span> `; });
-        list.innerHTML += `<div class="card" style="margin-bottom:12px"><div style="font-weight:700; color:${l.color}">${l.name}</div><div class="chain-box">${chainHtml}</div></div>`;
+        l.stations.forEach((sid, idx) => { 
+            chainHtml += `<span class="chain-item" style="background:${l.color}">${stationNames[sid]}</span>`;
+            if (l.stations.length > 1) {
+                if (idx < l.stations.length - 1) chainHtml += `<span class="chain-sep">⇄</span>`;
+                else chainHtml += `<span class="chain-sep">⇄</span> <span class="chain-item" style="background:${l.color}; opacity:0.6">${stationNames[l.stations[0]]}</span>`;
+            }
+        });
+        const isFocused = activeLineId === l.id;
+        list.innerHTML += `
+            <div class="card ${isFocused ? 'active-row' : ''}" style="margin-bottom:12px; cursor:pointer;" onclick="highlightLine(${l.id})">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:700; color:${l.color}">${l.name}</div>
+                    <div style="font-size:10px; opacity:0.6">${l.stations.length} Nodes</div>
+                </div>
+                <div class="chain-box">${chainHtml}</div>
+            </div>`;
     });
+}
 
+function renderCtrlList() {
     const ctrl = document.getElementById("ctrl-list"); ctrl.innerHTML = "";
     lines.forEach(l => {
-        ctrl.innerHTML += `<div class="line-ctrl-row"><div style="flex:1"><strong>${l.name}</strong></div><div class="badge ${l.isActive ? 'badge-active' : 'badge-suspended'}">${l.isActive ? 'Active' : 'Suspended'}</div><button class="btn btn-sm ${l.isActive ? 'btn-danger' : 'btn-success'}" onclick="l.isActive=!l.isActive; refreshUI();">${l.isActive ? 'Suspend' : 'Activate'}</button></div>`;
-    });
+        const statuses = ["active", "delayed", "suspended"];
+        let btnHtml = "";
+        statuses.forEach(s => {
+            const isSel = l.status === s;
+            const btnClass = s === "active" ? "btn-success" : (s === "delayed" ? "btn-primary" : "btn-danger");
+            btnHtml += `<button class="btn btn-sm ${isSel ? btnClass : 'btn-outline'}" 
+                                style="margin-left:5px; opacity:${isSel ? 1 : 0.4}" 
+                                onclick="updateLineStatus(${l.id}, '${s}')">${s.toUpperCase()}</button>`;
+        });
 
-    initMap();
+        ctrl.innerHTML += `
+            <div class="line-ctrl-row">
+                <div style="flex:1"><strong>${l.name}</strong></div>
+                <div>${btnHtml}</div>
+            </div>`;
+    });
 }
 
 function switchTab(tab) {
