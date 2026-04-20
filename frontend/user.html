@@ -1,212 +1,503 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Train Route Navigator — User Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .main-layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
-        .sidebar { display: flex; flex-direction: column; gap: 16px; }
-        .map-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow: hidden; }
-        #network-map { width: 100%; height: auto; display: block; border-radius: var(--radius-xs); }
-        .swap-btn { width: 36px; height: 36px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-2); margin: -4px auto; }
-        .route-step { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-left: 3px solid; margin-left: 10px; border-radius: 0 8px 8px 0; animation: fadeInUp 0.3s ease both; }
-        .station-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .station-name { font-weight: 500; font-size: 14px; flex: 1; }
-        .route-change { margin: 4px 10px 4px 13px; padding: 6px 14px; font-size: 12px; color: var(--gold); font-weight: 600; border-left: 2px dashed var(--border); animation: fadeInUp 0.3s ease both; }
-        .route-summary-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-        .summary-pill { text-align: center; padding: 12px 8px; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-        .summary-pill .val { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1; }
-        .summary-pill .lbl { font-size: 10px; color: var(--text-2); text-transform: uppercase; font-weight: 600; }
-        .line-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-xs); }
-        .line-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .line-label { flex:1; font-size: 14px; }
-        @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
+        .main-layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .map-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        #network-map {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: var(--radius-xs);
+        }
+
+        .swap-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-2);
+            margin: -4px auto;
+        }
+
+        .route-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-left: 3px solid;
+            margin-left: 10px;
+            border-radius: 0 8px 8px 0;
+            animation: fadeInUp 0.3s ease both;
+        }
+
+        .station-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .station-name {
+            font-weight: 500;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .route-change {
+            margin: 4px 10px 4px 13px;
+            padding: 6px 14px;
+            font-size: 12px;
+            color: var(--gold);
+            font-weight: 600;
+            border-left: 2px dashed var(--border);
+            animation: fadeInUp 0.3s ease both;
+        }
+
+        .route-summary-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .summary-pill {
+            text-align: center;
+            padding: 12px 8px;
+            background: var(--bg-3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+
+        .summary-pill .val {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        .summary-pill .lbl {
+            font-size: 10px;
+            color: var(--text-2);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .line-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .line-item:hover {
+            background: var(--surface-2);
+        }
+
+        .line-item.active {
+            background: var(--bg-3);
+            border: 1px solid var(--border-hi);
+        }
+
+        .tabs-section {
+            margin-top: 16px;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-2);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .tab-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .station-pill {
+            padding: 8px 12px;
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .interchange-star {
+            color: var(--gold);
+            font-size: 14px;
+        }
+
+        .line-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .line-label {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
+
 <body>
 
-<header class="site-header">
-    <a href="user.html" class="logo">
-        <div class="logo-icon">🚇</div>
-        <div><div class="logo-text">TrainNav</div><div class="logo-sub">DSA Project</div></div>
-    </a>
-    <nav class="header-nav">
-        <a href="user.html" class="nav-link active">User Dashboard</a>
-        <a href="admin.html" class="nav-link">Admin Panel</a>
-    </nav>
-</header>
+    <header class="site-header">
+        <a href="user.html" class="logo">
+            <div class="logo-icon">🚇</div>
+            <div>
+                <div class="logo-text">TrainNav</div>
+                <div class="logo-sub">DSA Project</div>
+            </div>
+        </a>
+        <nav class="header-nav">
+            <a href="user.html" class="nav-link active">User Dashboard</a>
+            <a href="admin.html" class="nav-link">Admin Panel</a>
+        </nav>
+    </header>
 
-<div class="page-wrapper">
-    <div class="main-layout">
-        <aside class="sidebar">
-            <div class="card">
-                <div class="card-title">Find Route</div>
-                <div class="form-group">
-                    <label class="form-label" for="from-station">From</label>
-                    <select id="from-station" class="form-control"></select>
+    <div class="page-wrapper">
+        <div class="main-layout">
+            <aside class="sidebar">
+                <div class="card">
+                    <div class="card-title">Find Route</div>
+                    <div class="form-group">
+                        <label class="form-label" for="from-station">From</label>
+                        <select id="from-station" class="form-control"></select>
+                    </div>
+                    <button class="swap-btn" onclick="swapStations()">⇅</button>
+                    <div class="form-group">
+                        <label class="form-label" for="to-station">To</label>
+                        <select id="to-station" class="form-control"></select>
+                    </div>
+                    <button class="btn btn-primary btn-full" onclick="findRoute()">🔍 Find Route</button>
+                    <div id="route-result"></div>
                 </div>
-                <button class="swap-btn" onclick="swapStations()">⇅</button>
-                <div class="form-group">
-                    <label class="form-label" for="to-station">To</label>
-                    <select id="to-station" class="form-control"></select>
+
+                <div class="card">
+                    <div class="card-title">Line Status</div>
+                    <div id="line-status-list"></div>
                 </div>
-                <button class="btn btn-primary btn-full" onclick="findRoute()">🔍 Find Route</button>
-                <div id="route-result"></div>
-            </div>
+            </aside>
 
-            <div class="card">
-                <div class="card-title">Line Status</div>
-                <div id="line-status-list"></div>
-            </div>
-        </aside>
+            <div class="right-col" style="display:flex; flex-direction:column; gap:16px;">
+                <div class="stats-row" style="grid-template-columns: repeat(4,1fr);">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-stations">0</div>
+                        <div class="stat-label">Total Stations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-lines">0</div>
+                        <div class="stat-label">Total Lines</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-edges">0</div>
+                        <div class="stat-label">Total Edges</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-interchanges">0</div>
+                        <div class="stat-label">Interchanges</div>
+                    </div>
+                </div>
+                <div class="map-card">
+                    <div class="card-title">Network Map</div>
+                    <svg id="network-map" viewBox="0 0 960 410"></svg>
+                </div>
 
-        <div class="right-col" style="display:flex; flex-direction:column; gap:16px;">
-            <div class="stats-row" style="grid-template-columns: repeat(2,1fr);">
-                <div class="stat-card"><div class="stat-value" id="stat-lines">4</div><div class="stat-label">Lines</div></div>
-                <div class="stat-card"><div class="stat-value" id="stat-stations">15</div><div class="stat-label">Stations</div></div>
+                <div class="card tabs-section">
+                    <div class="card-title">Line Explorer</div>
+                    <div class="tab-nav" id="line-tabs-nav"></div>
+                    <div id="line-tab-content" class="tab-content"></div>
+                </div>
             </div>
-            <div class="map-card">
-                <div class="card-title">Network Map</div>
-                <svg id="network-map" viewBox="0 0 960 410"></svg>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-// ================================================================
-//  INTERNAL DATA (INDEPENDENT)
-// ================================================================
-var stationNames = ["Airport","Central Park","City Hall","Tech Hub","University","Riverside","Northgate","Market Square","Stadium","Harbor","Westfield","Arts District","Old Town","Southpark","Eastgate"];
-var lines = [
-    { id:0, name:"Purple Line", color:"#7F77DD", isActive:true, stations:[0,1,2,3,4,12,5] },
-    { id:1, name:"Green Line",  color:"#1D9E75", isActive:true, stations:[6,4,7,8,5,13,9] },
-    { id:2, name:"Yellow Line", color:"#BA7517", isActive:true, stations:[10,3,7,2,11,14] },
-    { id:3, name:"Red Line",    color:"#D85A30", isActive:true, stations:[9,11,1,6,0,8,10] }
-];
-var positionsMap = {
-    0: {x:80,y:80}, 1: {x:200,y:60}, 2: {x:340,y:80}, 3: {x:480,y:60}, 4: {x:600,y:80},
-    5: {x:820,y:160}, 6: {x:160,y:200}, 7: {x:400,y:200}, 8: {x:560,y:200}, 9: {x:860,y:260},
-    10:{x:100,y:300}, 11:{x:280,y:300}, 12:{x:720,y:100}, 13:{x:740,y:220}, 14:{x:560,y:310}
-};
+    <script>
+        // ================================================================
+        //  INTERNAL DATA (INDEPENDENT)
+        // ================================================================
+        var stationNames = ["Airport", "Central Park", "City Hall", "Tech Hub", "University", "Riverside", "Northgate", "Market Square", "Stadium", "Harbor", "Westfield", "Arts District", "Old Town", "Southpark", "Eastgate"];
+        var lines = [
+            { id: 0, name: "Purple Line", color: "#7F77DD", isActive: true, stations: [0, 1, 2, 3, 4, 12, 5] },
+            { id: 1, name: "Green Line", color: "#1D9E75", isActive: true, stations: [6, 4, 7, 8, 5, 13, 9] },
+            { id: 2, name: "Yellow Line", color: "#BA7517", isActive: true, stations: [10, 3, 7, 2, 11, 14] },
+            { id: 3, name: "Red Line", color: "#D85A30", isActive: true, stations: [9, 11, 1, 6, 0, 8, 10] }
+        ];
+        var positionsMap = {
+            0: { x: 80, y: 80 }, 1: { x: 200, y: 60 }, 2: { x: 340, y: 80 }, 3: { x: 480, y: 60 }, 4: { x: 600, y: 80 },
+            5: { x: 820, y: 160 }, 6: { x: 160, y: 200 }, 7: { x: 400, y: 200 }, 8: { x: 560, y: 200 }, 9: { x: 860, y: 260 },
+            10: { x: 100, y: 300 }, 11: { x: 280, y: 300 }, 12: { x: 720, y: 100 }, 13: { x: 740, y: 220 }, 14: { x: 560, y: 310 }
+        };
 
-var adjMatrix = [];
-var lineOfEdge = [];
+        var adjMatrix = [];
+        var lineOfEdge = [];
 
-function buildAdjMatrix(){
-    const maxId = 50;
-    for(var i=0; i<maxId; i++){
-        adjMatrix[i]=[]; lineOfEdge[i]=[];
-        for(var j=0; j<maxId; j++){ adjMatrix[i][j]=0; lineOfEdge[i][j]=-1; }
-    }
-    lines.forEach(l => {
-        l.stations.forEach((sid, i) => {
-            var nxt = l.stations[(i+1)%l.stations.length];
-            adjMatrix[sid][nxt]=1; adjMatrix[nxt][sid]=1;
-            lineOfEdge[sid][nxt]=l.id; lineOfEdge[nxt][sid]=l.id;
-        });
-    });
-}
+        function buildAdjMatrix() {
+            const maxId = 50;
+            for (var i = 0; i < maxId; i++) {
+                adjMatrix[i] = []; lineOfEdge[i] = [];
+                for (var j = 0; j < maxId; j++) { adjMatrix[i][j] = 0; lineOfEdge[i][j] = -1; }
+            }
+            lines.forEach(l => {
+                l.stations.forEach((sid, i) => {
+                    var nxt = l.stations[(i + 1) % l.stations.length];
+                    adjMatrix[sid][nxt] = 1; adjMatrix[nxt][sid] = 1;
+                    lineOfEdge[sid][nxt] = l.id; lineOfEdge[nxt][sid] = l.id;
+                });
+            });
+        }
 
-function bfs(fromId, toId){
-    if(fromId===toId) return [fromId];
-    var dist=new Array(50).fill(-1), prev=new Array(50).fill(-1), vis=new Array(50).fill(false);
-    dist[fromId]=0; vis[fromId]=true;
-    var q=[fromId], head=0;
-    while(head < q.length){
-        var u=q[head++];
-        if(u===toId) break;
-        for(var v=0; v<50; v++){
-            if(adjMatrix[u][v]===1 && !vis[v]){
-                var eid=lineOfEdge[u][v];
-                if(eid!==-1 && !lines[eid].isActive) continue;
-                vis[v]=true; dist[v]=dist[u]+1; prev[v]=u; q.push(v);
+        function bfs(fromId, toId) {
+            if (fromId === toId) return [fromId];
+            var dist = new Array(50).fill(-1), prev = new Array(50).fill(-1), vis = new Array(50).fill(false);
+            dist[fromId] = 0; vis[fromId] = true;
+            var q = [fromId], head = 0;
+            while (head < q.length) {
+                var u = q[head++];
+                if (u === toId) break;
+                for (var v = 0; v < 50; v++) {
+                    if (adjMatrix[u][v] === 1 && !vis[v]) {
+                        var eid = lineOfEdge[u][v];
+                        if (eid !== -1 && !lines[eid].isActive) continue;
+                        vis[v] = true; dist[v] = dist[u] + 1; prev[v] = u; q.push(v);
+                    }
+                }
+            }
+            if (dist[toId] === -1) return null;
+            var path = [], c = toId;
+            while (c !== -1) { path.push(c); c = prev[c]; }
+            return path.reverse();
+        }
+
+        var activeLineId = -1;
+
+        function initMap() {
+            var svg = document.getElementById("network-map"); svg.innerHTML = "";
+            lines.forEach(l => {
+                var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.id = "line-group-" + l.id;
+                g.style.opacity = l.isActive ? (activeLineId === -1 || activeLineId === l.id ? "1" : "0.15") : "0.05";
+                g.style.transition = "opacity 0.3s ease";
+                l.stations.forEach((sid, i) => {
+                    var nxt = l.stations[(i + 1) % l.stations.length];
+                    var p1 = positionsMap[sid], p2 = positionsMap[nxt];
+                    var ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    ln.setAttribute("x1", p1.x); ln.setAttribute("y1", p1.y); ln.setAttribute("x2", p2.x); ln.setAttribute("y2", p2.y);
+                    ln.setAttribute("stroke", l.color); ln.setAttribute("stroke-width", "4"); ln.setAttribute("stroke-linecap", "round");
+                    g.appendChild(ln);
+                });
+                svg.appendChild(g);
+            });
+            stationNames.forEach((name, id) => {
+                var p = positionsMap[id];
+                var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.id = "station-circle-" + id;
+                c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "7");
+
+                // Determine if station is on the active line
+                var isOnActive = activeLineId === -1 || lines[activeLineId].stations.includes(id);
+
+                c.setAttribute("fill", isOnActive ? "#13131f" : "#0d0d14");
+                c.setAttribute("stroke", isOnActive ? "#7F77DD" : "#333");
+                c.setAttribute("stroke-width", "2");
+                c.style.transition = "all 0.3s ease";
+                c.onclick = () => { document.getElementById("from-station").value = id; };
+                svg.appendChild(c);
+
+                var t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                t.id = "station-text-" + id;
+                t.setAttribute("x", p.x); t.setAttribute("y", p.y - 12);
+                t.setAttribute("text-anchor", "middle"); t.setAttribute("font-size", "10");
+                t.setAttribute("fill", isOnActive ? "#9898b0" : "#444");
+                t.style.transition = "fill 0.3s ease";
+                t.textContent = name;
+                svg.appendChild(t);
+            });
+        }
+
+        function highlightLine(lineId) {
+            if (activeLineId === lineId) activeLineId = -1;
+            else activeLineId = lineId;
+
+            initMap();
+            populateUI();
+            if(activeLineId !== -1) showLineDetails(activeLineId);
+        }
+
+        function findRoute() {
+            var f = parseInt(document.getElementById("from-station").value), t = parseInt(document.getElementById("to-station").value);
+            if (isNaN(f) || isNaN(t)) return;
+            var path = bfs(f, t);
+            var rd = document.getElementById("route-result");
+            if (!path) { rd.innerHTML = '<div class="alert alert-error">No active route found.</div>'; return; }
+            var html = '<div style="margin-top:16px">';
+            var changes = 0; var lastLineId = -1;
+            path.forEach((sid, i) => {
+                if (i < path.length - 1) {
+                    var curLineId = lineOfEdge[sid][path[i + 1]];
+                    if (lastLineId !== -1 && curLineId !== lastLineId) {
+                        html += '<div class="route-change">Change to ' + lines[curLineId].name + '</div>';
+                        changes++;
+                    }
+                    lastLineId = curLineId;
+                }
+                var col = lastLineId !== -1 ? lines[lastLineId].color : "#7F77DD";
+                html += '<div class="route-step" style="border-left-color:' + col + '"><span class="station-dot" style="background:' + col + '"></span>' + stationNames[sid] + '</div>';
+            });
+            html += '<div class="route-summary-bar"><div class="summary-pill"><div class="val">' + (path.length - 1) + '</div><div class="lbl">Stops</div></div><div class="summary-pill"><div class="val">' + changes + '</div><div class="lbl">Changes</div></div></div>';
+            rd.innerHTML = html;
+        }
+
+        function swapStations() {
+            var f = document.getElementById("from-station"), t = document.getElementById("to-station");
+            var tmp = f.value; f.value = t.value; t.value = tmp;
+        }
+
+        function showLineDetails(lineId) {
+            const line = lines.find(l => l.id === lineId);
+            const content = document.getElementById("line-tab-content");
+            content.innerHTML = "";
+            line.stations.forEach(sid => {
+                const isInt = isStationInterchange(sid);
+                content.innerHTML += `
+                    <div class="station-pill" style="border-left: 3px solid ${line.color}">
+                        <span>${stationNames[sid]}</span>
+                        ${isInt ? '<span class="interchange-star" title="Interchange Station">★</span>' : ''}
+                    </div>
+                `;
+            });
+
+            // Update tab button active states
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === lineId);
+            });
+        }
+
+        function isStationInterchange(sid) {
+            let count = 0;
+            lines.forEach(l => { if (l.stations.includes(sid)) count++; });
+            return count > 1;
+        }
+
+        function populateUI() {
+            var f = document.getElementById("from-station"), t = document.getElementById("to-station");
+            if (f.options.length <= 1) { // Only populate if empty
+                f.innerHTML = '<option value="">Departure…</option>'; t.innerHTML = '<option value="">Destination…</option>';
+                stationNames.forEach((n, i) => {
+                    f.innerHTML += '<option value="' + i + '">' + n + '</option>';
+                    t.innerHTML += '<option value="' + i + '">' + n + '</option>';
+                });
+            }
+
+            // Stats update
+            document.getElementById("stat-stations").textContent = stationNames.length;
+            document.getElementById("stat-lines").textContent = lines.length;
+
+            let edges = 0;
+            for (let i = 0; i < 50; i++) {
+                for (let j = i + 1; j < 50; j++) {
+                    if (adjMatrix[i][j] === 1) edges++;
+                }
+            }
+            document.getElementById("stat-edges").textContent = edges;
+
+            let interchanges = 0;
+            stationNames.forEach((_, i) => { if (isStationInterchange(i)) interchanges++; });
+            document.getElementById("stat-interchanges").textContent = interchanges;
+
+            // Line Status List
+            var lList = document.getElementById("line-status-list"); lList.innerHTML = "";
+            lines.forEach(l => {
+                const isActive = activeLineId === l.id;
+                lList.innerHTML += `
+                    <div class="line-item ${isActive ? 'active' : ''}" onclick="highlightLine(${l.id})">
+                        <div class="line-dot" style="background:${l.color}"></div>
+                        <div class="line-label">${l.name}</div>
+                        <span class="badge ${l.isActive ? 'badge-active' : 'badge-suspended'}">${l.isActive ? 'Active' : 'Down'}</span>
+                    </div>`;
+            });
+
+            // Tab Nav
+            var tNav = document.getElementById("line-tabs-nav");
+            if (tNav.innerHTML === "") { // Only populate once
+                lines.forEach(l => {
+                    tNav.innerHTML += `<button class="tab-btn" onclick="highlightLine(${l.id})">${l.name}</button>`;
+                });
+                if(lines.length > 0) showLineDetails(0);
             }
         }
-    }
-    if(dist[toId]===-1) return null;
-    var path=[], c=toId;
-    while(c!==-1){ path.push(c); c=prev[c]; }
-    return path.reverse();
-}
 
-function initMap(){
-    var svg=document.getElementById("network-map"); svg.innerHTML = "";
-    lines.forEach(l => {
-        var g=document.createElementNS("http://www.w3.org/2000/svg","g");
-        g.style.opacity = l.isActive ? "1" : "0.2";
-        l.stations.forEach((sid, i) => {
-            var nxt = l.stations[(i+1)%l.stations.length];
-            var p1 = positionsMap[sid], p2 = positionsMap[nxt];
-            var ln=document.createElementNS("http://www.w3.org/2000/svg","line");
-            ln.setAttribute("x1",p1.x); ln.setAttribute("y1",p1.y); ln.setAttribute("x2",p2.x); ln.setAttribute("y2",p2.y);
-            ln.setAttribute("stroke",l.color); ln.setAttribute("stroke-width","4"); ln.setAttribute("stroke-linecap","round");
-            g.appendChild(ln);
-        });
-        svg.appendChild(g);
-    });
-    stationNames.forEach((name, id) => {
-        var p = positionsMap[id];
-        var c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-        c.setAttribute("cx",p.x); c.setAttribute("cy",p.y); c.setAttribute("r","7");
-        c.setAttribute("fill","#13131f"); c.setAttribute("stroke","#7F77DD"); c.setAttribute("stroke-width","2");
-        c.onclick = () => { document.getElementById("from-station").value=id; };
-        svg.appendChild(c);
-        var t=document.createElementNS("http://www.w3.org/2000/svg","text");
-        t.setAttribute("x",p.x); t.setAttribute("y",p.y-12);
-        t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","10"); t.setAttribute("fill","#9898b0");
-        t.textContent=name;
-        svg.appendChild(t);
-    });
-}
-
-function findRoute(){
-    var f=parseInt(document.getElementById("from-station").value), t=parseInt(document.getElementById("to-station").value);
-    if(isNaN(f)||isNaN(t)) return;
-    var path=bfs(f,t);
-    var rd=document.getElementById("route-result");
-    if(!path){ rd.innerHTML='<div class="alert alert-error">No active route found.</div>'; return; }
-    var html='<div style="margin-top:16px">';
-    var changes=0; var lastLineId = -1;
-    path.forEach((sid, i) => {
-        if(i < path.length - 1) {
-            var curLineId = lineOfEdge[sid][path[i+1]];
-            if(lastLineId !== -1 && curLineId !== lastLineId) {
-                html += '<div class="route-change">Change to '+lines[curLineId].name+'</div>';
-                changes++;
-            }
-            lastLineId = curLineId;
-        }
-        var col = lastLineId !== -1 ? lines[lastLineId].color : "#7F77DD";
-        html += '<div class="route-step" style="border-left-color:'+col+'"><span class="station-dot" style="background:'+col+'"></span>'+stationNames[sid]+'</div>';
-    });
-    html += '<div class="route-summary-bar"><div class="summary-pill"><div class="val">'+(path.length-1)+'</div><div class="lbl">Stops</div></div><div class="summary-pill"><div class="val">'+changes+'</div><div class="lbl">Changes</div></div></div>';
-    rd.innerHTML = html;
-}
-
-function swapStations(){
-    var f=document.getElementById("from-station"), t=document.getElementById("to-station");
-    var tmp=f.value; f.value=t.value; t.value=tmp;
-}
-
-function populateUI(){
-    var f=document.getElementById("from-station"), t=document.getElementById("to-station");
-    f.innerHTML='<option value="">Departure…</option>'; t.innerHTML='<option value="">Destination…</option>';
-    stationNames.forEach((n, i) => {
-        f.innerHTML+='<option value="'+i+'">'+n+'</option>';
-        t.innerHTML+='<option value="'+i+'">'+n+'</option>';
-    });
-    var lList=document.getElementById("line-status-list"); lList.innerHTML="";
-    lines.forEach(l => {
-        lList.innerHTML+='<div class="line-item"><div class="line-dot" style="background:'+l.color+'"></div>'+l.name+'<span class="badge badge-active">Active</span></div>';
-    });
-}
-
-buildAdjMatrix();
-initMap();
-populateUI();
-</script>
+        buildAdjMatrix();
+        initMap();
+        populateUI();
+    </script>
 </body>
+
 </html>
