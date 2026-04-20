@@ -16,6 +16,9 @@
         .line-ctrl-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface-2); border-radius: 8px; margin-bottom: 8px; }
         .chain-box { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
         .chain-item { padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #fff; font-weight: 500; }
+        .map-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 24px; overflow: hidden; }
+        #network-map { width: 100%; height: auto; display: block; }
+        .pos-group { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -32,28 +35,60 @@
 </header>
 
 <div class="page-wrapper">
-    <div class="stats-row" style="grid-template-columns: repeat(2, 1fr);">
-        <div class="stat-card"><div class="stat-value" id="stat-lines">4</div><div class="stat-label">Lines</div></div>
-        <div class="stat-card"><div class="stat-value" id="stat-stations">15</div><div class="stat-label">Stations</div></div>
+    <div class="stats-row" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="stat-card"><div class="stat-value" id="stat-stations">0</div><div class="stat-label">Total Stations</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-lines">0</div><div class="stat-label">Total Lines</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-edges">0</div><div class="stat-label">Total Edges</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-interchanges">0</div><div class="stat-label">Interchanges</div></div>
     </div>
 
     <div class="admin-layout">
         <aside class="admin-sidebar">
             <div class="card">
-                <div class="card-title">➕ Add Station (Current Session Only)</div>
+                <div class="card-title">➕ Add Station</div>
                 <div class="form-group">
                     <label class="form-label">Line</label>
-                    <select id="add-line-sel" class="form-control"></select>
+                    <select id="add-line-sel" class="form-control" onchange="updatePrevStnOptions()"></select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Name</label>
                     <input type="text" id="add-stn-name" class="form-control" placeholder="e.g. South End">
                 </div>
-                <button class="btn btn-success btn-full" onclick="handleAddStation()">Add to Line</button>
+                <div class="pos-group">
+                    <label class="form-label">Position</label>
+                    <select id="add-pos-sel" class="form-control" onchange="togglePrevStnField()">
+                        <option value="end">Add at End</option>
+                        <option value="start">Add at Beginning</option>
+                        <option value="between">Add In Between</option>
+                    </select>
+                </div>
+                <div class="form-group" id="prev-stn-field" style="display:none; margin-top:12px;">
+                    <label class="form-label">Insert After</label>
+                    <select id="prev-stn-sel" class="form-control"></select>
+                </div>
+                <button class="btn btn-success btn-full" style="margin-top:16px" onclick="handleAddStation()">Insert Node</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">🗑 Delete Station</div>
+                <div class="form-group">
+                    <label class="form-label">From Line</label>
+                    <select id="del-line-sel" class="form-control" onchange="updateDelStnOptions()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Station Name</label>
+                    <select id="del-stn-sel" class="form-control"></select>
+                </div>
+                <button class="btn btn-danger btn-full" onclick="handleDeleteStation()">Delete from Line</button>
             </div>
         </aside>
 
         <div>
+            <div class="map-card" style="margin-top: 0; margin-bottom: 16px;">
+                <div class="card-title">Network Map Preview</div>
+                <svg id="network-map" viewBox="0 0 960 410"></svg>
+            </div>
+
             <div class="tab-bar">
                 <button class="tab-btn active" id="tab-btn-lines" onclick="switchTab('lines')">🚉 Line Structure</button>
                 <button class="tab-btn" id="tab-btn-ctrl" onclick="switchTab('ctrl')">⚙ Status Control</button>
@@ -82,30 +117,155 @@ var lines = [
     { id:3, name:"Red Line",    color:"#D85A30", isActive:true, stations:[9,11,1,6,0,8,10] }
 ];
 
+var positionsMap = {
+    0: {x:80,y:80}, 1: {x:200,y:60}, 2: {x:340,y:80}, 3: {x:480,y:60}, 4: {x:600,y:80},
+    5: {x:820,y:160}, 6: {x:160,y:200}, 7: {x:400,y:200}, 8: {x:560,y:200}, 9: {x:860,y:260},
+    10:{x:100,y:300}, 11:{x:280,y:300}, 12:{x:720,y:100}, 13:{x:740,y:220}, 14:{x:560,y:310}
+};
+
+var adjMatrix = [];
+var lineOfEdge = [];
+
+function buildAdjMatrix(){
+    for(var i=0; i<100; i++){
+        adjMatrix[i]=[]; lineOfEdge[i]=[];
+        for(var j=0; j<100; j++){ adjMatrix[i][j]=0; lineOfEdge[i][j]=-1; }
+    }
+    lines.forEach(l => {
+        l.stations.forEach((sid, i) => {
+            var nxt = l.stations[(i+1)%l.stations.length];
+            adjMatrix[sid][nxt]=1; adjMatrix[nxt][sid]=1;
+            lineOfEdge[sid][nxt]=l.id; lineOfEdge[nxt][sid]=l.id;
+        });
+    });
+}
+
 function handleAddStation() {
     const lineId = parseInt(document.getElementById('add-line-sel').value);
     const name = document.getElementById('add-stn-name').value.trim();
+    const pos = document.getElementById('add-pos-sel').value;
     if(!name) return;
     
     let sid = stationNames.indexOf(name);
     if(sid === -1) {
         sid = stationNames.length;
         stationNames.push(name);
+        // Assign a reasonable position for new stations
+        positionsMap[sid] = { x: 100 + (sid * 30) % 700, y: 150 + (sid * 20) % 200 };
     }
     
     const line = lines.find(l => l.id === lineId);
     if(!line.stations.includes(sid)) {
-        line.stations.push(sid);
+        if (pos === 'start') {
+            line.stations.unshift(sid);
+        } else if (pos === 'between') {
+            const prevSid = parseInt(document.getElementById('prev-stn-sel').value);
+            const idx = line.stations.indexOf(prevSid);
+            line.stations.splice(idx + 1, 0, sid);
+        } else {
+            line.stations.push(sid);
+        }
         refreshUI();
-        alert(name + " added! (Note: Changes won't reflect in User Dashboard as they are separate files)");
     }
 }
 
+function handleDeleteStation() {
+    const lineId = parseInt(document.getElementById('del-line-sel').value);
+    const sid = parseInt(document.getElementById('del-stn-sel').value);
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return;
+
+    line.stations = line.stations.filter(id => id !== sid);
+    refreshUI();
+}
+
+function togglePrevStnField() {
+    const isBetween = document.getElementById('add-pos-sel').value === 'between';
+    document.getElementById('prev-stn-field').style.display = isBetween ? 'block' : 'none';
+}
+
+function updatePrevStnOptions() {
+    const lineId = parseInt(document.getElementById('add-line-sel').value);
+    const line = lines.find(l => l.id === lineId);
+    const sel = document.getElementById('prev-stn-sel');
+    sel.innerHTML = "";
+    line.stations.forEach(sid => {
+        sel.innerHTML += `<option value="${sid}">${stationNames[sid]}</option>`;
+    });
+}
+
+function updateDelStnOptions() {
+    const lineId = parseInt(document.getElementById('del-line-sel').value);
+    const line = lines.find(l => l.id === lineId);
+    const sel = document.getElementById('del-stn-sel');
+    sel.innerHTML = "";
+    line.stations.forEach(sid => {
+        sel.innerHTML += `<option value="${sid}">${stationNames[sid]}</option>`;
+    });
+}
+
+function initMap(){
+    var svg=document.getElementById("network-map"); svg.innerHTML = "";
+    lines.forEach(l => {
+        var g=document.createElementNS("http://www.w3.org/2000/svg","g");
+        g.style.opacity = l.isActive ? "1" : "0.2";
+        l.stations.forEach((sid, i) => {
+            var nxt = l.stations[(i+1)%l.stations.length];
+            var p1 = positionsMap[sid], p2 = positionsMap[nxt];
+            var ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+            ln.setAttribute("x1",p1.x); ln.setAttribute("y1",p1.y); ln.setAttribute("x2",p2.x); ln.setAttribute("y2",p2.y);
+            ln.setAttribute("stroke",l.color); ln.setAttribute("stroke-width","4"); ln.setAttribute("stroke-linecap","round");
+            g.appendChild(ln);
+        });
+        svg.appendChild(g);
+    });
+    stationNames.forEach((name, id) => {
+        var p = positionsMap[id];
+        if(!p) return;
+        var c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        c.setAttribute("cx",p.x); c.setAttribute("cy",p.y); c.setAttribute("r","7");
+        c.setAttribute("fill","#13131f"); c.setAttribute("stroke","#7F77DD"); c.setAttribute("stroke-width","2");
+        svg.appendChild(c);
+        var t=document.createElementNS("http://www.w3.org/2000/svg","text");
+        t.setAttribute("x",p.x); t.setAttribute("y",p.y-12);
+        t.setAttribute("text-anchor","middle"); t.setAttribute("font-size","10"); t.setAttribute("fill","#9898b0");
+        t.textContent=name;
+        svg.appendChild(t);
+    });
+}
+
 function refreshUI() {
+    buildAdjMatrix();
+    
     document.getElementById("stat-stations").textContent = stationNames.length;
-    const addSel = document.getElementById("add-line-sel");
-    addSel.innerHTML = "";
-    lines.forEach(l => { addSel.innerHTML += `<option value="${l.id}">${l.name}</option>`; });
+    document.getElementById("stat-lines").textContent = lines.length;
+    
+    let edges = 0;
+    for(let i=0; i<100; i++) {
+        for(let j=i+1; j<100; j++) { if(adjMatrix[i][j] === 1) edges++; }
+    }
+    document.getElementById("stat-edges").textContent = edges;
+
+    let interchanges = 0;
+    stationNames.forEach((_, sid) => {
+        let count = 0;
+        lines.forEach(l => { if(l.stations.includes(sid)) count++; });
+        if(count > 1) interchanges++;
+    });
+    document.getElementById("stat-interchanges").textContent = interchanges;
+
+    const addLineSel = document.getElementById("add-line-sel");
+    const delLineSel = document.getElementById("del-line-sel");
+    if (addLineSel.innerHTML === "") {
+        lines.forEach(l => { 
+            const opt = `<option value="${l.id}">${l.name}</option>`;
+            addLineSel.innerHTML += opt;
+            delLineSel.innerHTML += opt;
+        });
+    }
+
+    updatePrevStnOptions();
+    updateDelStnOptions();
 
     const list = document.getElementById("lines-list"); list.innerHTML = "";
     lines.forEach(l => {
@@ -118,6 +278,8 @@ function refreshUI() {
     lines.forEach(l => {
         ctrl.innerHTML += `<div class="line-ctrl-row"><div style="flex:1"><strong>${l.name}</strong></div><div class="badge ${l.isActive ? 'badge-active' : 'badge-suspended'}">${l.isActive ? 'Active' : 'Suspended'}</div><button class="btn btn-sm ${l.isActive ? 'btn-danger' : 'btn-success'}" onclick="l.isActive=!l.isActive; refreshUI();">${l.isActive ? 'Suspend' : 'Activate'}</button></div>`;
     });
+
+    initMap();
 }
 
 function switchTab(tab) {
