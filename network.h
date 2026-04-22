@@ -62,6 +62,7 @@ struct Network {
     int      totalStations;
     int      adj[MAX_STATIONS][MAX_STATIONS];        // adjacency matrix: 1=edge, 0=none
     int      lineOfEdge[MAX_STATIONS][MAX_STATIONS]; // which line ID owns each edge
+    int      weight[MAX_STATIONS][MAX_STATIONS];     // edge weights for Dijkstra
 
     // Default constructor
     Network() {
@@ -75,6 +76,7 @@ struct Network {
             for (int j = 0; j < MAX_STATIONS; j++) {
                 adj[i][j] = 0;
                 lineOfEdge[i][j] = -1;
+                weight[i][j] = 0;
             }
         }
     }
@@ -98,6 +100,7 @@ void printAllInterchanges(Network* net);
 void buildAdjMatrix(Network* net);
 bool bfsShortestPath(Network* net, int fromId, int toId, int* path, int& pathLen);
 void printRoute(Network* net, int* path, int pathLen);
+bool dijkstraShortestPath(Network* net, int src, int dest, int* path, int& pathLen, int& totalCost);
 
 // Phase 6: Extensions & Memory Management
 int countStopsClockwise(Line* line, Station* from, Station* to);

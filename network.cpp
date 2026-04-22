@@ -254,12 +254,13 @@ void buildAdjMatrix(Network* net) {
         for (int j = 0; j < MAX_STATIONS; j++) {
             net->adj[i][j] = 0;
             net->lineOfEdge[i][j] = -1;
+            net->weight[i][j] = 0;
         }
     }
 
     for (int l = 0; l < net->lineCount; l++) {
         Line* line = net->lines[l];
-        if (line->head == nullptr) continue;
+        if (!line->isActive || line->head == nullptr) continue; // Skip suspended lines here or edge by edge? User says "If line is suspended -> skip edge"
 
         // Restore links for this line snapshot
         for (int i = 0; i < line->stationCount; i++) {
@@ -275,9 +276,17 @@ void buildAdjMatrix(Network* net) {
             net->adj[a][b] = 1;
             net->lineOfEdge[a][b] = l;
             
+            // Calculate weight
+            int w = 2; // Base weight
+            if (cur->next->isInterchange) w += 5; // Penalty for entering interchange
+            if (line->isDelayed) w += 3;
+            
+            net->weight[a][b] = w;
+
             // For undirected graph
             net->adj[b][a] = 1;
             net->lineOfEdge[b][a] = l;
+            net->weight[b][a] = w; // Assumes symmetric weight for simplicity
 
             cur = cur->next;
         } while (cur != line->head);
@@ -347,6 +356,72 @@ bool bfsShortestPath(Network* net, int fromId, int toId, int* path, int& pathLen
         int temp = path[i];
         path[i] = path[pathLen - 1 - i];
         path[pathLen - 1 - i] = temp;
+    }
+
+    return true;
+}
+
+// Phase 4: Dijkstra's Algorithm (Weighted Pathfinding)
+bool dijkstraShortestPath(Network* net, int src, int dest, int* path, int& pathLen, int& totalCost) {
+    if (!net || src < 0 || dest < 0 || src >= MAX_STATIONS || dest >= MAX_STATIONS) return false;
+
+    int dist[MAX_STATIONS];
+    bool vis[MAX_STATIONS];
+    int prev[MAX_STATIONS];
+
+    for (int i = 0; i < MAX_STATIONS; i++) {
+        dist[i] = 1e9; // infinity
+        vis[i] = false;
+        prev[i] = -1;
+    }
+
+    dist[src] = 0;
+
+    for (int i = 0; i < net->totalStations; i++) {
+        // Find unvisited node with minimum distance
+        int u = -1;
+        int minDist = 1e9;
+        
+        for (int j = 0; j < net->totalStations; j++) {
+            int sid = net->allStations[j]->id;
+            if (!vis[sid] && dist[sid] < minDist) {
+                minDist = dist[sid];
+                u = sid;
+            }
+        }
+
+        if (u == -1 || u == dest) break;
+        vis[u] = true;
+
+        // Relax neighbors
+        for (int v = 0; v < MAX_STATIONS; v++) {
+            if (net->adj[u][v] > 0 && !vis[v]) {
+                int weight = net->weight[u][v];
+                if (dist[u] + weight < dist[v]) {
+                    dist[v] = dist[u] + weight;
+                    prev[v] = u;
+                }
+            }
+        }
+    }
+
+    if (dist[dest] == 1e9) return false;
+
+    totalCost = dist[dest];
+    
+    // Reconstruct path
+    pathLen = 0;
+    int c = dest;
+    while (c != -1) {
+        path[pathLen++] = c;
+        c = prev[c];
+    }
+
+    // Reverse path
+    for (int i = 0; i < pathLen / 2; i++) {
+        int tmp = path[i];
+        path[i] = path[pathLen - 1 - i];
+        path[pathLen - 1 - i] = tmp;
     }
 
     return true;

@@ -356,7 +356,7 @@
         var lineOfEdge = [];
 
         function buildAdjMatrix() {
-            const maxId = 50;
+            const maxId = 100;
             for (var i = 0; i < maxId; i++) {
                 adjMatrix[i] = []; lineOfEdge[i] = [];
                 for (var j = 0; j < maxId; j++) { adjMatrix[i][j] = 0; lineOfEdge[i][j] = -1; }
@@ -373,7 +373,7 @@
 
         function bfs(fromId, toId) {
             if (fromId === toId) return [fromId];
-            var dist = new Array(50).fill(-1), prev = new Array(50).fill(-1), vis = new Array(50).fill(false);
+            var dist = new Array(100).fill(-1), prev = new Array(100).fill(-1), vis = new Array(100).fill(false);
             dist[fromId] = 0; vis[fromId] = true;
             var q = [fromId], head = 0;
             while (head < q.length) {
@@ -507,7 +507,8 @@
             initMap();
             
             if (!path) { rd.innerHTML = '<div class="alert alert-error">No active route found.</div>'; return; }
-            var html = '<div style="margin-top:16px">';
+            var html = '<div class="alert alert-info" style="font-size: 11px; margin-bottom: 12px; padding: 10px;">Actual shortest path is computed using BFS in C++ backend</div>';
+            html += '<div style="margin-top:8px">';
             var changes = 0; var lastLineId = -1;
             path.forEach((sid, i) => {
                 if (i < path.length - 1) {
@@ -572,8 +573,8 @@
             document.getElementById("stat-lines").textContent = lines.length;
 
             let edges = 0;
-            for (let i = 0; i < 50; i++) {
-                for (let j = i + 1; j < 50; j++) {
+            for (let i = 0; i < 100; i++) {
+                for (let j = i + 1; j < 100; j++) {
                     if (adjMatrix[i][j] === 1) edges++;
                 }
             }

@@ -39,6 +39,7 @@ void printMenu() {
     cout << " 6. Toggle line status (active/delayed/suspended)" << endl;
     cout << " 7. Count stops between two stations (same line)" << endl;
     cout << " 8. Show network statistics" << endl;
+    cout << " 9. Find fastest route (Dijkstra)" << endl;
     cout << " 0. Exit" << endl;
     cout << "Enter choice: ";
 }
@@ -206,8 +207,31 @@ int main() {
                 }
                 break;
             }
-            case 8: {
-                printNetworkStats(net);
+            case 9: {
+                string from, to;
+                cout << "From station: "; getline(cin, from);
+                cout << "To station  : "; getline(cin, to);
+
+                int startId = getStationId(net, from);
+                int endId = getStationId(net, to);
+
+                if (startId == -1 || endId == -1) {
+                    cout << "Station not found." << endl;
+                } else {
+                    int path[MAX_STATIONS];
+                    int pathLen = 0, totalCost = 0;
+                    buildAdjMatrix(net); // Ensure weights are up to date
+                    if (dijkstraShortestPath(net, startId, endId, path, pathLen, totalCost)) {
+                        cout << "\nFastest Route (Dijkstra):" << endl;
+                        for (int i = 0; i < pathLen; i++) {
+                            cout << net->allStations[path[i]]->name;
+                            if (i < pathLen - 1) cout << " -> ";
+                        }
+                        cout << "\nTotal Cost: " << totalCost << endl;
+                    } else {
+                        cout << "No route possible." << endl;
+                    }
+                }
                 break;
             }
             case 0:
